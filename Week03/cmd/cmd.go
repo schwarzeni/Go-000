@@ -17,13 +17,13 @@ const serverShutdownDuration = time.Second
 func main() {
 	g, ctx := errgroup.WithContext(context.Background())
 
-	// register to system signal
+	// 监听系统信号
 	g.Go(func() error {
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 		select {
 		case <-sigs:
-			log.Println("catch system term signal")
+			log.Println("catch system term signal, quit all tasks in group")
 			g.StopAll()
 		case <-ctx.Done():
 		}
@@ -42,10 +42,13 @@ func main() {
 // newServer 启动一个新的服务
 func newServer(ctx context.Context, addr string, afterShutdownFn func()) error {
 	s := &http.Server{Addr: addr}
-	s.RegisterOnShutdown(afterShutdownFn)
 	log.Println(addr + " server is starting")
 
+	// 当前 server 退出时执行的逻辑，这里为调用 StoplLl 将其他的 server 也退掉
+	s.RegisterOnShutdown(afterShutdownFn)
+
 	go func() {
+		// 监听退出信号
 		<-ctx.Done()
 		log.Println(addr + " server is shutting down")
 		shutdownCtx, cancelFunc := context.WithDeadline(context.Background(), time.Now().Add(serverShutdownDuration))
