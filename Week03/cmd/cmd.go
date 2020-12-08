@@ -15,10 +15,10 @@ import (
 const serverShutdownDuration = time.Second
 
 func main() {
-	g, ctx := errgroup.WithContext(context.Background())
+	g := errgroup.WithContext(context.Background())
 
 	// 监听系统信号
-	g.Go(func() error {
+	g.Go(func(ctx context.Context) error {
 		sigs := make(chan os.Signal, 1)
 		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 		select {
@@ -30,9 +30,9 @@ func main() {
 		return nil
 	})
 
-	g.Go(func() error { return newServer(ctx, ":9000", g.StopAll) })
-	g.Go(func() error { return newServer(ctx, ":9001", g.StopAll) })
-	g.Go(func() error { return newServer(ctx, ":9002", g.StopAll) })
+	g.Go(func(ctx context.Context) error { return newServer(ctx, ":9000", g.StopAll) })
+	g.Go(func(ctx context.Context) error { return newServer(ctx, ":9001", g.StopAll) })
+	g.Go(func(ctx context.Context) error { return newServer(ctx, ":9002", g.StopAll) })
 
 	if err := g.Wait(); err != nil {
 		log.Fatal(err)

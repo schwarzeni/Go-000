@@ -8,7 +8,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Group 对 sync/errgroup 的简单封装，新增方法 StopAll 以及在 Go 中对 panic 做 recover
+// Group 对 sync/errgroup 的简单封装，封装 context，新增方法 StopAll 以及在 Go 中对 panic 做 recover
+// 参考 https://github.com/go-kratos/kratos/blob/master/pkg/sync/errgroup/errgroup.go
 type Group struct {
 	ctx      context.Context
 	cancel   func()
@@ -16,14 +17,14 @@ type Group struct {
 }
 
 // WithContext 新建一个 Group
-func WithContext(ctx context.Context) (*Group, context.Context) {
+func WithContext(ctx context.Context) *Group {
 	c, f := context.WithCancel(ctx)
 	g, ctx := errgroup.WithContext(c)
-	return &Group{ctx: ctx, cancel: f, rawGroup: g}, ctx
+	return &Group{ctx: ctx, cancel: f, rawGroup: g}
 }
 
 // Go 启动一个任务
-func (g *Group) Go(fn func() error) {
+func (g *Group) Go(fn func(context context.Context) error) {
 	g.rawGroup.Go(func() (err error) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -32,7 +33,7 @@ func (g *Group) Go(fn func() error) {
 				err = fmt.Errorf("errgroup: panic recovered: %s\n%s", r, buf)
 			}
 		}()
-		return fn()
+		return fn(g.ctx)
 	})
 }
 
